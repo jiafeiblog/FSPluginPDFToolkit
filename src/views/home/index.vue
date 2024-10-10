@@ -1,5 +1,12 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
+import { bitable, IAttachmentField } from '@lark-base-open/js-sdk'
 import { PDFMerger } from './pdf-merger'
+
+onMounted(() => {
+  // 获取多维表格的列信息
+  const columns = bitable
+})
 </script>
 
 <template>
