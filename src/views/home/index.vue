@@ -1,45 +1,38 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { bitable, IAttachmentField } from '@lark-base-open/js-sdk'
+import { onMounted, ref, watch } from 'vue'
+import { bitable, FieldType, IAttachmentField, ICurrencyFieldMeta } from '@lark-base-open/js-sdk'
 import { PDFMerger } from './pdf-merger'
 
+const tableFieldList = ref(null)
+const loading = ref(true)
+
+async function getTable() {
+  loading.value = true
+  const table = await bitable.base.getActiveTable()
+  // 查询附件类型字段的元数据列表
+  const fields = await table.getFieldMetaListByType(FieldType.Attachment)
+  console.log('temps', fields)
+
+  tableFieldList.value = fields
+  loading.value = false
+}
+
 onMounted(() => {
-  // 获取多维表格的列信息
-  const columns = bitable
+  // 获取多维表格的 列信息 仅限附件类型
+  getTable()
 })
+
+function submit() {
+  const arr = tableFieldList.value
+  // 1、查询每一列的数据 拿到附件pdf的链接
+  // 2、下载pdf
+  // 3、合并所有的pdf文件
+  // 4、合并后的文件上传为新链接
+}
 </script>
 
 <template>
-  <div>
-    hahah
-    <!-- <form-select
-      v-if="!modelData.model"
-      v-model:value="modelData.pages"
-      :msg="t('Configuration split')"
-      input
-      :options="filterFields(FieldType.Text)"
-      @create="pagesCreate"
-    >
-      <template #tooltip>
-        {{ t('Can be entered manually or specified by fields') }}
-        <n-ul style="--n-text-color:unset;">
-          <n-li>{{ t("Use `,` to separate individual page numbers, such as 3,5,8, to split and merge into one file for pages 3, 5, and 8.") }}</n-li>
-          <n-li>{{ t("Use `-` or `to` to indicate a range, such as 3-7, to split and merge into one file from page 3 to page 7.") }}</n-li>
-          <n-li>{{ t("Use `/` to create an additional file, such as 1/2-5, to split into two files, the first with only page 1, and the second from page 2 to page 5.") }}</n-li>
-          <n-li>{{ t("Use `start/s` or `end/e` to represent the starting page or ending page, such as 5-end, to split from page 5 to the last page, and start-5, to split from the first page to page 5.") }}</n-li>
-        </n-ul>
-      </template>
-    </form-select>
-    <form-select
-      v-model:value="modelData.output"
-      :msg="t('Select Output Field')"
-      :options="filterFields(FieldType.Attachment)"
-    />
-    <form-start
-      :disableds="disableds"
-      @update:click="main"
-    /> -->
-  </div>
+  <div>haha {{ loading }} {{ tableFieldList }}</div>
 </template>
 
 <style lang="scss" scoped></style>
