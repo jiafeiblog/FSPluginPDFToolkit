@@ -1,8 +1,19 @@
 <script setup lang="ts">
-import { onMounted, ref, watch, reactive, computed } from 'vue'
-import { bitable, FieldType, IAttachmentField, ICurrencyFieldMeta } from '@lark-base-open/js-sdk'
+import { onMounted, ref, watch, reactive, computed, onBeforeMount } from 'vue'
+import {
+  bitable,
+  FieldType,
+  IAttachmentField,
+  ICurrencyFieldMeta,
+  IField,
+  IRecord,
+  ITable
+} from '@lark-base-open/js-sdk'
 import { PDFMerger } from './pdf-merger'
 
+const ScopeMap: { table: ITable } = {
+  table: null
+}
 // 所有的可用字段
 const tableFieldList = ref<any[]>([])
 const tableName = ref('')
@@ -33,6 +44,7 @@ const outputFieldList = computed(() => {
 async function getTable() {
   loading.value = true
   const table = await bitable.base.getActiveTable()
+  ScopeMap.table = table
   const name = await table.getName()
   tableName.value = name
   const view = await table.getActiveView()
@@ -51,18 +63,76 @@ async function getTable() {
   loading.value = false
 }
 
-onMounted(() => {
+async function submit() {
+  const arr = tableFieldList.value
+  // 拿到源数据列 以及输出的列信息
+  const originFieldList: IAttachmentField[] = []
+  for (const item of feildInfo.originFields) {
+    const field = await ScopeMap.table.getFieldById<IAttachmentField>(item)
+    originFieldList.push(field)
+  }
+  const outpuField: IField = await ScopeMap.table.getFieldById(feildInfo.outputField)
+  // 根据选中的字段id 查询每一列的数据 拿到附件pdf的链接
+  const allResult = {
+    hasMore: true,
+    total: 0,
+    pageToken: null,
+    records: []
+  }
+  console.log('originFieldList', originFieldList)
+  console.log('outpuField', outpuField)
+  // 翻页读取所有的记录
+  while (allResult.hasMore) {
+    const res = await ScopeMap.table?.getRecords({
+      pageSize: 5000,
+      pageToken: allResult.pageToken
+    })
+    allResult.pageToken = res.pageToken
+    allResult.hasMore = res.hasMore
+    allResult.records = allResult.records.concat(res.records)
+    allResult.total = res.total
+  }
+  // 筛选出记录中 outpuField 记录为空的数据 有数据了就不用更新了
+  const originFieldIds = originFieldList.map((item) => item.id)
+  const outputFieldId = outpuField.id
+  const finalRecords: IRecord[] = allResult.records.filter((item: IRecord) => {
+    const obj = item.fields[outputFieldId] as any
+    return !obj || obj.length <= 0
+  })
+  console.log('allResult', allResult.records)
+  console.log('filterRecords', finalRecords)
+  // 遍历可用记录 下载pdf 做合并操作
+  for (const item of finalRecords) {
+    // 待保存的附件列表 此处合并后就一个文件
+    const files = []
+    const merge = new PDFMerger()
+    const allUrls: string[] = []
+    for (const f of originFieldList) {
+      const attachmentUrls = await f.getAttachmentUrls(item.recordId)
+      Array.prototype.push.apply(allUrls, attachmentUrls)
+    }
+    const mergedPdfBlob = await merge.mergePDFs(allUrls)
+    // 取第一条url为新的pdf名称
+    files.push(new File([mergedPdfBlob], allUrls[0]))
+    // 上传文件保存记录
+
+    const downloadLink = document.createElement('a');
+    downloadLink.href = URL.createObjectURL(mergedPdfBlob);
+    // 设置下载文件名
+    downloadLink.download = 'mergedPdf.pdf'; 
+
+    // 触发下载
+    downloadLink.click();
+    // outpuField.setValue(item.recordId, files)
+    // 下载对应的pdf文件 合并为新的文件
+    console.log('所有附件地址', allUrls)
+  }
+}
+
+onBeforeMount(() => {
   // 获取多维表格的 列信息 仅限附件类型
   getTable()
 })
-
-function submit() {
-  const arr = tableFieldList.value
-  // 1、查询每一列的数据 拿到附件pdf的链接
-  // 2、下载pdf
-  // 3、合并所有的pdf文件
-  // 4、合并后的文件上传为新链接
-}
 </script>
 
 <template>

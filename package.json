@@ -13,9 +13,7 @@
   "dependencies": {
     "@lark-base-open/js-sdk": "^0.4.0",
     "naive-ui": "^2.40.1",
-    "p-limit": "^6.1.0",
-    "pdfjs": "^2.5.3",
-    "random-ease": "^1.0.8",
+    "pdf-lib": "^1.17.1",
     "vue": "^3.4.29",
     "vue-router": "^4.3.3"
   },
