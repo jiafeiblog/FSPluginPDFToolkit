@@ -6,6 +6,7 @@ import {
   IAttachmentField,
   ICurrencyFieldMeta,
   IField,
+  ILookupField,
   IOpenAttachment,
   IRecord,
   ITable
@@ -47,7 +48,7 @@ const processInfo = reactive<{
   loadLabel: ''
 })
 
-// 需要禁用已选的字段
+// 需要禁用已选的字段 并且输出字段只允许附件类型
 const outputFieldList = computed(() => {
   const arr = tableFieldList.value.slice()
   const origins = feildInfo.originFields
@@ -56,6 +57,9 @@ const outputFieldList = computed(() => {
       item.disabled = true
     } else {
       item.disabled = false
+    }
+    if (item.type !== FieldType.Attachment) {
+      item.disabled = true
     }
   })
   return arr
@@ -80,11 +84,18 @@ async function getTable() {
   const vn = await view.getName()
   viewName.value = vn
   // 查询附件类型字段的元数据列表
-  const fields = await table.getFieldMetaListByType(FieldType.Attachment)
-  fields.reverse()
-  const arr = fields.map((item) => {
+  // const fields = await table.getFieldMetaListByType(FieldType.Attachment)
+  // 根据当前视图 查询字段元数据 不然顺序可能会有问题
+  const fielsSort = await view.getFieldMetaList()
+  // 筛选出附件类型 查找引用类型
+  const types = [FieldType.Attachment, FieldType.Lookup]
+  const resultFields = fielsSort.filter((i) => {
+    return types.includes(i.type)
+  })
+  const arr = resultFields.map((item) => {
     return {
       label: item.name,
+      type: item.type,
       value: item.id
     }
   })
@@ -133,9 +144,9 @@ async function submit() {
   console.log('filterOriginFields', filterOriginFields)
 
   // 拿到源数据列 以及输出的列信息
-  const originFieldList: IAttachmentField[] = []
+  const originFieldList: IField[] = []
   for (const item of filterOriginFields) {
-    const field = await ScopeMap.table.getFieldById<IAttachmentField>(item)
+    const field = await ScopeMap.table.getFieldById(item)
     originFieldList.push(field)
   }
   processInfo.loadLabel = '正在读取输出字段'
@@ -232,7 +243,20 @@ async function submit() {
           if (tempFileNames.length <= 0) {
             continue scendFor
           }
-          const attachmentUrls = await f.getAttachmentUrls(item.recordId)
+          let attachmentUrls: string[] = []
+          const t = await f.getType()
+          if (t === FieldType.Attachment) {
+            const af = f as IAttachmentField
+            attachmentUrls = await af.getAttachmentUrls(item.recordId)
+          } else {
+            const lf = f as ILookupField
+            const v = await lf.getCell(item.recordId)
+            console.log('引用类型', v)
+
+            // 查找应用类型 需要独立查询
+            attachmentUrls = await getLookOriginUrl('', '', '')
+          }
+
           Array.prototype.push.apply(allUrls, attachmentUrls)
         }
         const mergedPdfBlob = await merge.mergePDFs(allUrls)
@@ -288,6 +312,15 @@ async function submit() {
   }
 }
 
+// 获取源表格的类型
+async function getLookOriginUrl(tableId, fieldId, recordId): Promise<string[]> {
+  const lookupTable = await bitable.base.getTableById(tableId)
+  const lookupField = await lookupTable.getFieldById(fieldId)
+  const obj = lookupField as IAttachmentField
+  const urls = await obj.getAttachmentUrls(recordId)
+  return urls
+}
+
 onBeforeMount(() => {
   // 获取多维表格的 列信息 仅限附件类型
   getTable()
@@ -298,7 +331,9 @@ onBeforeMount(() => {
   <div class="container">
     <div style="margin-bottom: 15px">
       <n-alert title="" type="info" :bordered="bordered">
-        源字段的值为空会跳过处理，输出字段值不为空会跳过处理
+        1. 源字段的值为空会跳过处理 <br />
+        2. 工具只会合并PDF类型文件，如果有其余类型的文件，会跳过表格行<br />
+        3. 输出字段值不为空会跳过<br />
       </n-alert>
     </div>
     <n-spin :show="processInfo.loading">
