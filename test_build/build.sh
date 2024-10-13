@@ -13,4 +13,4 @@ docker buildx build  --platform linux/amd64 -t $project_name:$version .
 #docker tag $project_name:$version registry.cn-hangzhou.aliyuncs.com/yidui/$project_name:$version
 #docker push registry.cn-hangzhou.aliyuncs.com/yidui/$project_name:$version
 
-rm -rf dist
+# rm -rf dist
