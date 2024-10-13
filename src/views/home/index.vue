@@ -251,7 +251,7 @@ async function submit() {
       await new Promise(function (resolve) {
         setTimeout(() => {
           resolve(null)
-        }, 1000)
+        }, 200)
       })
     }
     processInfo.loading = false
