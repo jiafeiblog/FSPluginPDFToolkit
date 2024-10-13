@@ -1,9 +1,0 @@
-version: "3"
-
-services:
-  feishu-pdf-batch-merger:
-    image: feishu-pdf-batch-merger:latest
-    ports:
-      - "8080:80"
-    volumes:
-      - /data/feishu-log:/tmp
