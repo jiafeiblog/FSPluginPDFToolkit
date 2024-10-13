@@ -12,6 +12,7 @@ import {
   ITable
 } from '@lark-base-open/js-sdk'
 import { useMessage, useDialog } from 'naive-ui'
+import { getLookupValueByFieldKey } from '../../common/utils'
 import { PDFMerger } from './pdf-merger'
 
 const ScopeMap: { table: ITable } = {
@@ -250,11 +251,9 @@ async function submit() {
             attachmentUrls = await af.getAttachmentUrls(item.recordId)
           } else {
             const lf = f as ILookupField
-            const v = await lf.getCell(item.recordId)
-            console.log('引用类型', v)
-
             // 查找应用类型 需要独立查询
-            attachmentUrls = await getLookOriginUrl('', '', '')
+            attachmentUrls = await getLookupValueByFieldKey(item, lf.id)
+            console.log('引用类型', attachmentUrls)
           }
 
           Array.prototype.push.apply(allUrls, attachmentUrls)
@@ -267,7 +266,7 @@ async function submit() {
       } catch (err) {
         errorRecordIds.push(item.recordId)
         processInfo.errorNum += 1
-        message.error(err)
+        message.error(err.message)
         console.error('error:', err)
       }
       processInfo.processed += 1
@@ -310,15 +309,6 @@ async function submit() {
   } else {
     message.warning('当前多维表可处理数据条数为0')
   }
-}
-
-// 获取源表格的类型
-async function getLookOriginUrl(tableId, fieldId, recordId): Promise<string[]> {
-  const lookupTable = await bitable.base.getTableById(tableId)
-  const lookupField = await lookupTable.getFieldById(fieldId)
-  const obj = lookupField as IAttachmentField
-  const urls = await obj.getAttachmentUrls(recordId)
-  return urls
 }
 
 onBeforeMount(() => {
