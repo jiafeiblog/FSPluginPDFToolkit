@@ -1,7 +1,4 @@
 #!/bin/bash
-
-# docker login ccr.ccs.tencentyun.com --username=384369178 
-# pwd=2BfxNjLPinz6ah2F
 project_name="feishu-pdf-batch-merger"
 version="latest"
 # cd ../ && pnpm install && pnpm run build
