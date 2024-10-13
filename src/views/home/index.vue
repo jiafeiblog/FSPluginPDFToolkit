@@ -12,7 +12,7 @@ import {
   ITable
 } from '@lark-base-open/js-sdk'
 import { useMessage, useDialog } from 'naive-ui'
-import { getLookupValueByFieldKey } from '../../common/utils'
+import { getLookupValueByFieldKey, getRecordsListByTablePop } from '../../common/utils'
 import { PDFMerger } from './pdf-merger'
 
 const ScopeMap: { table: ITable } = {
@@ -128,10 +128,7 @@ function getValueByFieldKey(field: IRecord, key: string) {
   return fileNames
 }
 
-async function submit() {
-  if (!handleValidate()) {
-    return
-  }
+async function handleRecords(selectRecordIds: string[]) {
   processInfo.loading = true
   processInfo.loadLabel = '正在读取源字段'
   // 将源字段排序处理好
@@ -154,38 +151,44 @@ async function submit() {
   const outpuField: IField = await ScopeMap.table.getFieldById(feildInfo.outputField)
   // 根据选中的字段id 查询每一列的数据 拿到附件pdf的链接
   const allResult = {
-    hasMore: true,
+    // hasMore: true,
     total: 0,
-    pageToken: null,
+    // pageToken: null,
     records: []
   }
   processInfo.loadLabel = '正在读取多维表数据'
-  // 翻页读取所有的记录
-  let ticket = 0
-  while (allResult.hasMore) {
-    if (ticket > 100000) {
-      // 防止意料之外的死循环
-      return
-    }
-    ticket++
-    const res = await ScopeMap.table?.getRecords({
-      pageSize: 5000,
-      pageToken: allResult.pageToken
-    })
-    allResult.pageToken = res.pageToken
-    allResult.hasMore = res.hasMore
-    allResult.total = res.total
-    if (res.total) {
-      allResult.records = allResult.records.concat(res.records)
-    }
+  for (const id of selectRecordIds) {
+    const info = await ScopeMap.table.getRecordById(id)
+    // @ts-ignore
+    info.recordId = id
+    allResult.records.push(info)
+    allResult.total += 1
   }
-  if (allResult.total <= 0) {
-    processInfo.loading = false
-    message.warning('多维表数据为空，不可操作')
-    return
-  }
-  // 排序调整
-  allResult.records.reverse()
+  // let ticket = 0
+  // while (allResult.hasMore) {
+  //   if (ticket > 100000) {
+  //     // 防止意料之外的死循环
+  //     return
+  //   }
+  //   ticket++
+  //   const res = await ScopeMap.table?.getRecords({
+  //     pageSize: 5000,
+  //     pageToken: allResult.pageToken
+  //   })
+  //   allResult.pageToken = res.pageToken
+  //   allResult.hasMore = res.hasMore
+  //   allResult.total = res.total
+  //   if (res.total) {
+  //     allResult.records = allResult.records.concat(res.records)
+  //   }
+  // }
+  // if (allResult.total <= 0) {
+  //   processInfo.loading = false
+  //   message.warning('多维表数据为空，不可操作')
+  //   return
+  // }
+  // // 排序调整
+  // allResult.records.reverse()
 
   // 筛选出记录中 outpuField 记录为空的数据 有数据了就不用更新了
   const originFieldIds = originFieldList.map((item) => item.id)
@@ -217,7 +220,6 @@ async function submit() {
 
     return true
   })
-  // console.log('allRecords', allResult)
 
   processInfo.loading = false
 
@@ -307,8 +309,22 @@ async function submit() {
       }
     })
   } else {
-    message.warning('当前多维表可处理数据条数为0')
+    dialog.warning({
+      title: '信息提示',
+      content: '当前多维表可处理数据条数为0',
+      positiveText: '确定'
+    })
   }
+}
+
+async function singleSubmit() {
+  if (!handleValidate()) {
+    return
+  }
+  const table = ScopeMap.table
+  const view = await table.getActiveView()
+  const recordIds = await getRecordsListByTablePop(table.id, view.id)
+  handleRecords(recordIds)
 }
 
 onBeforeMount(() => {
@@ -353,7 +369,7 @@ onBeforeMount(() => {
         <n-form-item path="outputField" label="选择输出字段">
           <n-select v-model:value="feildInfo.outputField" :options="outputFieldList" />
         </n-form-item>
-        <n-button attr-type="button" type="info" @click="submit"> 处理 </n-button>
+        <n-button attr-type="button" type="info" @click="singleSubmit"> 处理 </n-button>
       </n-form>
     </n-spin>
   </div>

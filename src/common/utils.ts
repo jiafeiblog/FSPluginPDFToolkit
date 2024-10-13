@@ -16,3 +16,13 @@ export async function getLookupValueByFieldKey(record: IRecord, fieldKey: string
     }
     return allUrls
 }
+
+/**
+ * 通过表格弹窗选择记录
+ * @param tableId 
+ * @param viewId 
+ */
+export async function getRecordsListByTablePop(tableId: string, viewId: string) {
+    const recordIds = await bitable.ui.selectRecordIdList(tableId, viewId)
+    return recordIds
+}
